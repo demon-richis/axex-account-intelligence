@@ -1,0 +1,2 @@
+const buckets=new Map(); const WINDOW=60000, LIMIT=100;
+module.exports=(req,res,next)=>{const key=req.ip||req.socket.remoteAddress||'unknown'; const now=Date.now(); let b=buckets.get(key); if(!b||now-b.start>=WINDOW)b={start:now,count:0}; b.count++; buckets.set(key,b); res.set('X-RateLimit-Limit',String(LIMIT)); res.set('X-RateLimit-Remaining',String(Math.max(0,LIMIT-b.count))); if(b.count>LIMIT)return res.status(429).json({error:'Rate limit exceeded',retryAfterSeconds:Math.ceil((WINDOW-(now-b.start))/1000)}); next();};
