@@ -45,14 +45,18 @@ async function insertRows(rows) {
   if (sql) {
     for (let offset = 0; offset < rows.length; offset += 500) {
       const batch = rows.slice(offset, offset + 500);
-      const values = batch.map((_, index) => `($${index * 3 + 1}::cidr,$${index * 3 + 2},$${index * 3 + 3})`).join(',');
-      const params = batch.flatMap(row => [row.cidr, row.source, row.kind]);
-      await sql(`INSERT INTO ip_blocklists (cidr,source,kind) VALUES ${values} ON CONFLICT (cidr) DO NOTHING`, params);
+      const statement = buildBlocklistInsert(batch);
+      await sql(statement.text, statement.params);
     }
   } else {
     const memory = getMemory();
     for (const row of rows) if (!memory.blocklists.some(existing => existing.cidr === row.cidr)) memory.blocklists.push(row);
   }
+}
+
+function buildBlocklistInsert(batch) {
+  const values = batch.map((_, index) => `($${index * 3 + 1}::cidr,$${index * 3 + 2},$${index * 3 + 3})`).join(',');
+  return { text: `INSERT INTO ip_blocklists (cidr,source,kind) VALUES ${values} ON CONFLICT (cidr) DO NOTHING`, params: batch.flatMap(row => [row.cidr, row.source, row.kind]) };
 }
 
 async function refreshBlocklists() {
@@ -96,4 +100,4 @@ async function isEmpty() {
   return getMemory().blocklists.length === 0;
 }
 
-module.exports = { refreshBlocklists, lookupIP, isEmpty, normalizeCidr };
+module.exports = { refreshBlocklists, lookupIP, isEmpty, normalizeCidr, buildBlocklistInsert };
