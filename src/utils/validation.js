@@ -21,7 +21,7 @@ function optionalIp(value) {
 function optionalTimestamp(value) {
   if (value == null || value === '') return null;
   const timestamp = Number(value);
-  if (!Number.isFinite(timestamp) || timestamp <= 0 || timestamp > Date.now() + 5 * 60 * 1000) {
+  if (!Number.isFinite(timestamp) || timestamp <= 0 || timestamp > Date.now()) {
     throw new Error('createdTimestamp must be a valid non-future timestamp');
   }
   return timestamp;

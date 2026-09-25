@@ -18,6 +18,7 @@ router.post('/:userId', async (req, res) => {
     if (sql) {
       await sql('INSERT INTO flagged_accounts (user_id,reason,flagged_by,severity) VALUES ($1,$2,$3,$4) ON CONFLICT (user_id) DO UPDATE SET reason=EXCLUDED.reason,flagged_by=EXCLUDED.flagged_by,severity=EXCLUDED.severity,active=TRUE', [id, reason, flaggedBy, severity]);
       await sql('INSERT INTO user_intelligence (user_id,is_flagged,flag_reason,risk_score,risk_level) VALUES ($1,TRUE,$2,100,\'critical\') ON CONFLICT (user_id) DO UPDATE SET is_flagged=TRUE,flag_reason=EXCLUDED.flag_reason,risk_score=100,risk_level=\'critical\',updated_at=NOW()', [id, reason]);
+      try { await sql('UPDATE user_intelligence SET is_flagged=TRUE,flag_reason=$2,updated_at=NOW() WHERE user_id=$1', [id, reason]); } catch (_) {}
     } else {
       const memory = getMemory();
       memory.flags.set(id, { user_id: id, reason, flagged_by: flaggedBy, severity, active: true });
