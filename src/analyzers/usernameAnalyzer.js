@@ -11,9 +11,11 @@ const fallbackPatterns = [
 async function loadPatterns() {
   if (patternCache) return patternCache;
   const sql = getSql();
-  if (sql) { try { const rows = await sql('SELECT pattern, pattern_type, score_addition, description FROM username_patterns'); patternCache = rows; return rows; } catch (_) {} }
-  patternCache = getMemory().patterns.length ? getMemory().patterns : fallbackPatterns; return patternCache;
+  if (sql) { try { const rows = await sql('SELECT pattern, pattern_type, score_addition, description FROM username_patterns'); patternCache = dedupe(rows); return patternCache; } catch (_) {} }
+  patternCache = dedupe(getMemory().patterns.length ? getMemory().patterns : fallbackPatterns); return patternCache;
 }
+function dedupe(patterns) { return [...new Map(patterns.map(pattern => [pattern.pattern, pattern])).values()]; }
+function invalidatePatternCache() { patternCache = null; }
 async function analyzeUsername(username = '') {
   const value = String(username); if (!value) return { score: 0, reasons: [], patterns: [] }; let score = 0; const reasons = []; const patterns = [];
   for (const p of await loadPatterns()) { try { const re = new RegExp(p.pattern, p.pattern_type === 'keyword' ? 'i' : 'i'); if (re.test(value)) { score += Number(p.score_addition) || 0; patterns.push(p.pattern); reasons.push(`USERNAME_PATTERN:${p.description || p.pattern}`); } } catch (_) {} }
@@ -23,4 +25,4 @@ async function analyzeUsername(username = '') {
   if (/\d{4,}$/.test(value)) { score += 15; reasons.push('SEQUENTIAL_NUMBERS'); }
   return { score: Math.min(score, 100), reasons, patterns };
 }
-module.exports = { analyzeUsername, loadPatterns };
+module.exports = { analyzeUsername, loadPatterns, invalidatePatternCache };

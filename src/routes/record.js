@@ -4,7 +4,7 @@ const { recordGuildEvent } = require('../analyzers/guildBaseline');
 const cache = require('../cache/scoreCache');
 const { requiredId } = require('../utils/validation');
 
-const eventTypes = new Set(['VERIFY_START', 'VERIFY_SUCCESS', 'VERIFY_FAIL', 'JOIN', 'CHALLENGE_FAIL']);
+const eventTypes = new Set(['VERIFY_START', 'VERIFY_SUCCESS', 'VERIFY_FAIL', 'JOIN', 'CHALLENGE_FAIL', 'WEB_IP_CAPTURED']);
 
 router.post('/', async (req, res) => {
   try {

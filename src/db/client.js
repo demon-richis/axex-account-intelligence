@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { neon } = require('@neondatabase/serverless');
 
-const memory = { users: new Map(), ips: new Map(), alts: [], patterns: [], events: [], flags: new Map(), history: [], joins: [] };
+const memory = { users: new Map(), ips: new Map(), alts: [], patterns: [], events: [], flags: new Map(), history: [], joins: [], blocklists: [], outcomes: [] };
 let sql = null;
 let initialized = false;
 const defaults = [
