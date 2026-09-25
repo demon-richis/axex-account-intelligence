@@ -9,6 +9,7 @@ const { recordGuildObservation, getGuildBaseline, analyzeGuildBaseline } = requi
 const { riskLevel, recommendation } = require('../src/analyzers/thresholds');
 const { getMemory } = require('../src/db/client');
 const { lookupIP, normalizeCidr } = require('../src/analyzers/blocklistManager');
+const { resetDiscordCache, snowflakeCreatedAt: discordSnowflakeCreatedAt } = require('../src/integrations/discord');
 
 test('unknown profile fields do not create age or avatar evidence', () => {
   const result = analyzeProfile({});
@@ -79,4 +80,43 @@ test('memory blocklist lookup matches CIDR ranges', async () => {
   memory.blocklists.push({ cidr: '203.0.113.0/24', source: 'test', kind: 'tor' });
   assert.equal(normalizeCidr('203.0.113.7'), '203.0.113.7/32');
   assert.deepEqual(await lookupIP('203.0.113.9'), ['tor']);
+});
+
+test('Discord 429 does not fail analysis and backs off repeat calls', async () => {
+  const http = require('node:http');
+  const originalFetch = global.fetch;
+  const originalToken = process.env.DISCORD_TOKEN;
+  const originalApiKey = process.env.API_KEY;
+  let calls = 0;
+  process.env.DISCORD_TOKEN = 'test-token';
+  process.env.API_KEY = 'test-key';
+  resetDiscordCache();
+  global.fetch = async () => { calls += 1; return { status: 429, ok: false, headers: { get: () => null }, json: async () => ({ retry_after: 60 }) }; };
+  const { app } = require('../index');
+  const server = http.createServer(app);
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const request = () => new Promise((resolve, reject) => {
+    const req = http.request({ hostname: '127.0.0.1', port: server.address().port, path: '/analyze/discord-429?username=normalname', headers: { 'X-API-Key': 'test-key' } }, response => {
+      let body = '';
+      response.on('data', chunk => { body += chunk; });
+      response.on('end', () => resolve({ statusCode: response.statusCode, body: JSON.parse(body) }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+  const first = await request();
+  const second = await request();
+  await new Promise(resolve => server.close(resolve));
+  global.fetch = originalFetch;
+  if (originalToken == null) delete process.env.DISCORD_TOKEN;
+  else process.env.DISCORD_TOKEN = originalToken;
+  if (originalApiKey == null) delete process.env.API_KEY;
+  else process.env.API_KEY = originalApiKey;
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.body.discordEnriched, false);
+  assert.equal(typeof first.body.riskScore, 'number');
+  assert.equal(second.statusCode, 200);
+  assert.equal(second.body.discordEnriched, false);
+  assert.equal(calls, 1);
+  assert.equal(Number.isFinite(discordSnowflakeCreatedAt('175928847299117063')), true);
 });

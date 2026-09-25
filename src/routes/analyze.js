@@ -21,7 +21,16 @@ router.get('/:userId', async (req, res) => {
     const guildId = optionalId(req.query.guildId, 'guildId');
     let requestedTimestamp = null;
     try { requestedTimestamp = optionalTimestamp(req.query.createdTimestamp); } catch (_) { requestedTimestamp = null; }
-    const discordAccount = await fetchDiscordAccount(userId, guildId);
+    let discordAccount = null;
+    let discordEnriched = false;
+    if (process.env.DISCORD_TOKEN) {
+      try {
+        discordAccount = await fetchDiscordAccount(userId, guildId);
+        discordEnriched = Boolean(discordAccount);
+      } catch (error) {
+        console.warn(`Discord enrichment unavailable for ${userId}: ${error.message}`);
+      }
+    }
     const username = discordAccount?.username || requestedUsername;
     const avatar = discordAccount ? discordAccount.avatar : req.query.avatar;
     const createdTimestamp = discordAccount?.createdTimestamp || requestedTimestamp;
@@ -54,7 +63,7 @@ router.get('/:userId', async (req, res) => {
       else getMemory().history.push({ user_id: userId, old_score: Number(previous), new_score: result.finalScore, reason: historyReason, changed_at: new Date().toISOString() });
     }
     cache.set(userId, { riskScore: result.finalScore, riskLevel: result.riskLevel, recommendation: result.recommendation, confidence: result.confidence });
-    res.json({ userId, username, dataSource: discordAccount ? 'discord' : 'request', riskScore: result.finalScore, riskLevel: result.riskLevel, recommendation: result.recommendation, confidence: result.confidence, scoreVersion: '2.0', breakdown: result.breakdown, reasons: result.reasons, cached: false, analyzedAt: new Date().toISOString() });
+    res.json({ userId, username, dataSource: discordAccount ? 'discord' : 'request', discordEnriched, riskScore: result.finalScore, riskLevel: result.riskLevel, recommendation: result.recommendation, confidence: result.confidence, scoreVersion: '2.0', breakdown: result.breakdown, reasons: result.reasons, cached: false, analyzedAt: new Date().toISOString() });
   } catch (error) {
     const status = /must be|must have|valid|characters/.test(error.message) ? 400 : 503;
     console.error('analysis:', error.message);
