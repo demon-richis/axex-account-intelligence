@@ -37,4 +37,14 @@ async function getActiveFlag(userId) {
   return memory.flags.get(id)?.active ? memory.flags.get(id) : null;
 }
 async function query(text, params = []) { if (!sql) throw new Error('DATABASE_UNAVAILABLE'); return sql.query(text, params); }
-module.exports = { initDB, getSql, getMemory, getActiveFlag, query };
+async function cleanupExpiredData() {
+  if (!sql) return { skipped: true };
+  const behaviorDays = Number(process.env.BEHAVIOR_RETENTION_DAYS) || 180;
+  const networkDays = Number(process.env.NETWORK_RETENTION_DAYS) || 90;
+  const outcomeDays = Number(process.env.OUTCOME_RETENTION_DAYS) || 365;
+  await sql('DELETE FROM behavior_events WHERE created_at < NOW() - make_interval(days => $1)', [behaviorDays]);
+  await sql('DELETE FROM ip_records WHERE last_seen < NOW() - make_interval(days => $1) AND flagged = FALSE', [networkDays]);
+  await sql('DELETE FROM outcomes WHERE created_at < NOW() - make_interval(days => $1)', [outcomeDays]);
+  return { behaviorDays, networkDays, outcomeDays };
+}
+module.exports = { initDB, getSql, getMemory, getActiveFlag, query, cleanupExpiredData };
