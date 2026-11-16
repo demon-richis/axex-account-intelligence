@@ -86,3 +86,8 @@ test('repository INSERT contracts have matching columns and values', () => {
   assertInsertContract(generated.text);
   assert.equal(generated.params.length, 3);
 });
+
+test('analyze upserts do not erase a stored IP when the new request omits it', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'src/routes/analyze.js'), 'utf8');
+  assert.match(source, /ip_address=COALESCE\(EXCLUDED\.ip_address,user_intelligence\.ip_address\)/);
+});
