@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { recordEvent } = require('../analyzers/behaviorTracker');
-const { recordGuildEvent } = require('../analyzers/guildBaseline');
+const { recordJoin } = require('../analyzers/joinPatternAnalyzer');
+const { recordGuildEvent, recordGuildObservation } = require('../analyzers/guildBaseline');
 const cache = require('../cache/scoreCache');
 const { requiredId } = require('../utils/validation');
 
@@ -32,7 +33,12 @@ router.post('/', async (req, res) => {
     if (clickMs != null && (!Number.isInteger(Number(clickMs)) || Number(clickMs) < 0 || Number(clickMs) > 300000)) return res.status(400).json({ error: 'clickMs must be an integer from 0 to 300000' });
     if (metadata != null && (typeof metadata !== 'object' || Array.isArray(metadata))) return res.status(400).json({ error: 'metadata must be an object' });
     const event = await recordEvent(id, guild, eventType, { clickMs, metadata });
-    await recordGuildEvent(guild, eventType);
+    if (eventType === 'JOIN') {
+      const join = recordJoin(guild, id, metadata || {});
+      await recordGuildObservation(guild, metadata?.accountAgeDays, Boolean(join.isRaid), eventType);
+    } else {
+      await recordGuildEvent(guild, eventType);
+    }
     const { getSql, getMemory } = require('../db/client');
     if (getSql()) {
       if (eventType === 'VERIFY_SUCCESS') await getSql()('UPDATE user_intelligence SET total_verifications=total_verifications+1, last_seen=NOW(), updated_at=NOW() WHERE user_id=$1', [id]);

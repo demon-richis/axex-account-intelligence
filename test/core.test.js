@@ -10,6 +10,7 @@ const { riskLevel, recommendation } = require('../src/analyzers/thresholds');
 const { getMemory } = require('../src/db/client');
 const { lookupIP, normalizeCidr } = require('../src/analyzers/blocklistManager');
 const { resetDiscordCache, snowflakeCreatedAt: discordSnowflakeCreatedAt } = require('../src/integrations/discord');
+const { analyzeJoin, recordJoin, getGuildJoinPattern } = require('../src/analyzers/joinPatternAnalyzer');
 
 test('unknown profile fields do not create age or avatar evidence', () => {
   const result = analyzeProfile({});
@@ -54,6 +55,18 @@ test('guild baselines identify large account-age outliers', async () => {
   const result = analyzeGuildBaseline(baseline, 1);
   assert.equal(result.score, 15);
   assert.deepEqual(result.reasons, ['GUILD_ACCOUNT_AGE_OUTLIER']);
+});
+
+test('join analysis is read-only and requires multiple matching joins for a wave', () => {
+  const guildId = `join-test-${Date.now()}`;
+  const metadata = { accountAgeDays: 1, avatar: null };
+  assert.equal(analyzeJoin(guildId, 'user-1', metadata).joinCount, 1);
+  assert.equal(analyzeJoin(guildId, 'user-2', metadata).joinCount, 1);
+  assert.equal(getGuildJoinPattern(guildId).joinCount, 0);
+  recordJoin(guildId, 'user-1', metadata);
+  recordJoin(guildId, 'user-2', metadata);
+  assert.equal(analyzeJoin(guildId, 'user-3', metadata).joinCount, 3);
+  assert.equal(analyzeJoin(guildId, 'user-3', metadata).accountWave, true);
 });
 
 test('thresholds are shared and confidence ignores unknown age', () => {

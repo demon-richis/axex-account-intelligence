@@ -91,3 +91,9 @@ test('analyze upserts do not erase a stored IP when the new request omits it', (
   const source = fs.readFileSync(path.join(__dirname, '..', 'src/routes/analyze.js'), 'utf8');
   assert.match(source, /ip_address=COALESCE\(EXCLUDED\.ip_address,user_intelligence\.ip_address\)/);
 });
+
+test('analyze does not persist join-pattern observations', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'src/routes/analyze.js'), 'utf8');
+  assert.doesNotMatch(source, /recordJoin|recordGuildObservation|INSERT INTO join_patterns/);
+  assert.match(source, /analyzeJoin/);
+});

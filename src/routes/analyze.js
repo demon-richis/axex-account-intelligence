@@ -5,10 +5,10 @@ const { analyzeUsername } = require('../analyzers/usernameAnalyzer');
 const { getBehaviorScore } = require('../analyzers/behaviorTracker');
 const { analyzeIP } = require('../analyzers/networkAnalyzer');
 const { detectAlts } = require('../analyzers/altDetector');
-const { recordJoin } = require('../analyzers/joinPatternAnalyzer');
+const { analyzeJoin } = require('../analyzers/joinPatternAnalyzer');
 const { calculateRisk } = require('../analyzers/riskEngine');
 const { fetchDiscordAccount } = require('../integrations/discord');
-const { getGuildBaseline, analyzeGuildBaseline, recordGuildObservation } = require('../analyzers/guildBaseline');
+const { getGuildBaseline, analyzeGuildBaseline } = require('../analyzers/guildBaseline');
 const { requiredId, optionalId, optionalIp, optionalTimestamp, optionalUsername } = require('../utils/validation');
 const cache = require('../cache/scoreCache');
 
@@ -40,11 +40,9 @@ router.get('/:userId', async (req, res) => {
     const network = await analyzeIP(ip, userId);
     const alt = await detectAlts(userId, ip, username, createdTimestamp);
     const baseline = guildId ? await getGuildBaseline(guildId) : null;
-    const joinWave = guildId ? recordJoin(guildId, userId, { accountAgeDays: profile.ageDays, avatar }) : { score: 0, reasons: [] };
+    const joinWave = guildId ? analyzeJoin(guildId, userId, { accountAgeDays: profile.ageDays, avatar }) : { score: 0, reasons: [] };
     const guildSignal = guildId ? analyzeGuildBaseline(baseline, profile.ageDays) : { score: 0, reasons: [], baseline: null };
     const join = { ...joinWave, score: Math.min(100, joinWave.score + guildSignal.score), reasons: [...(joinWave.reasons || []), ...guildSignal.reasons], guildBaseline: guildSignal };
-    if (getSql() && guildId) await getSql()('INSERT INTO join_patterns (guild_id,user_id,account_age_days,risk_score,was_raid) VALUES ($1,$2,$3,$4,$5)', [guildId, userId, profile.ageDays, join.score, Boolean(join.isRaid)]);
-    if (guildId) await recordGuildObservation(guildId, profile.ageDays, Boolean(join.isRaid));
     const flag = await getActiveFlag(userId);
     const previousRows = getSql() ? await getSql()('SELECT risk_score FROM user_intelligence WHERE user_id=$1', [userId]) : [];
     const previous = previousRows[0]?.risk_score ?? getMemory().users.get(userId)?.risk_score;
