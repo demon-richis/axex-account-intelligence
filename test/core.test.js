@@ -57,6 +57,22 @@ test('guild baselines identify large account-age outliers', async () => {
   assert.deepEqual(result.reasons, ['GUILD_ACCOUNT_AGE_OUTLIER']);
 });
 
+test('guild baseline excludes unknown ages but includes zero', async () => {
+  const guildId = `baseline-unknown-${Date.now()}`;
+  await recordGuildObservation(guildId, null, false);
+  await recordGuildObservation(guildId, undefined, false);
+  await recordGuildObservation(guildId, NaN, false);
+  let baseline = await getGuildBaseline(guildId);
+  assert.equal(baseline.sample_count, 0);
+  assert.equal(baseline.average_account_age_days, null);
+  await recordGuildObservation(guildId, 0, false);
+  await recordGuildObservation(guildId, 10, false);
+  baseline = await getGuildBaseline(guildId);
+  assert.equal(baseline.sample_count, 2);
+  assert.equal(baseline.average_account_age_days, 5);
+  assert.equal(baseline.fresh_join_count, 1);
+});
+
 test('join analysis is read-only and requires multiple matching joins for a wave', () => {
   const guildId = `join-test-${Date.now()}`;
   const metadata = { accountAgeDays: 1, avatar: null };

@@ -24,27 +24,30 @@ function analyzeGuildBaseline(baseline, accountAgeDays) {
 
 async function recordGuildObservation(guildId, accountAgeDays, wasRaid, eventType) {
   const id = String(guildId);
-  const age = Number.isFinite(Number(accountAgeDays)) ? Number(accountAgeDays) : null;
-  const fresh = age != null && age < 7;
+  const age = accountAgeDays == null ? null : Number(accountAgeDays);
+  const knownAge = Number.isFinite(age) && age >= 0 ? age : null;
+  const fresh = knownAge != null && knownAge >= 0 && knownAge < 7;
   const sql = getSql();
   if (sql) {
     await sql(`INSERT INTO guild_baselines (guild_id, sample_count, join_count, fresh_join_count, raid_count, verification_successes, verification_failures, average_account_age_days, updated_at)
-      VALUES ($1, 1, 1, $2, $3, $4, $5, $6, NOW())
+      VALUES ($1, $7, 1, $2, $3, $4, $5, $6, NOW())
       ON CONFLICT (guild_id) DO UPDATE SET
-        sample_count=guild_baselines.sample_count+1,
+        sample_count=guild_baselines.sample_count+EXCLUDED.sample_count,
         join_count=guild_baselines.join_count+1,
         fresh_join_count=guild_baselines.fresh_join_count+EXCLUDED.fresh_join_count,
         raid_count=guild_baselines.raid_count+EXCLUDED.raid_count,
         verification_successes=guild_baselines.verification_successes+EXCLUDED.verification_successes,
         verification_failures=guild_baselines.verification_failures+EXCLUDED.verification_failures,
-        average_account_age_days=CASE WHEN EXCLUDED.average_account_age_days IS NULL THEN guild_baselines.average_account_age_days ELSE ((guild_baselines.average_account_age_days*guild_baselines.sample_count)+EXCLUDED.average_account_age_days)/(guild_baselines.sample_count+1) END,
-        updated_at=NOW()`, [id, fresh ? 1 : 0, wasRaid ? 1 : 0, eventType === 'VERIFY_SUCCESS' ? 1 : 0, eventType === 'VERIFY_FAIL' ? 1 : 0, age]);
+        average_account_age_days=CASE WHEN EXCLUDED.average_account_age_days IS NULL THEN guild_baselines.average_account_age_days ELSE ((COALESCE(guild_baselines.average_account_age_days,0)*guild_baselines.sample_count)+EXCLUDED.average_account_age_days)/(guild_baselines.sample_count+EXCLUDED.sample_count) END,
+        updated_at=NOW()        `, [id, fresh ? 1 : 0, wasRaid ? 1 : 0, eventType === 'VERIFY_SUCCESS' ? 1 : 0, eventType === 'VERIFY_FAIL' ? 1 : 0, knownAge, knownAge == null ? 0 : 1]);
     return;
   }
   const current = memoryBaselines.get(id) || { guild_id: id, sample_count: 0, join_count: 0, fresh_join_count: 0, raid_count: 0, verification_successes: 0, verification_failures: 0, average_account_age_days: null };
-  const nextCount = current.sample_count + 1;
-  current.average_account_age_days = age == null ? current.average_account_age_days : ((Number(current.average_account_age_days || 0) * current.sample_count) + age) / nextCount;
-  current.sample_count = nextCount;
+  if (knownAge != null) {
+    const nextCount = current.sample_count + 1;
+    current.average_account_age_days = ((Number(current.average_account_age_days || 0) * current.sample_count) + knownAge) / nextCount;
+    current.sample_count = nextCount;
+  }
   current.join_count += 1;
   current.fresh_join_count += fresh ? 1 : 0;
   current.raid_count += wasRaid ? 1 : 0;
