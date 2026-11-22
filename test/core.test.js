@@ -137,6 +137,22 @@ test('noisy-OR risk engine meets scoring outcomes', () => {
   assert.equal(stronger.finalScore >= base.finalScore, true);
 });
 
+test('rate limiting separates public and authenticated guild buckets', async () => {
+  const { publicLimiter, authLimiter } = require('../src/middleware/rateLimit');
+  const invoke = (middleware, req) => new Promise(resolve => {
+    const response = { set() {}, status(code) { this.code = code; return this; }, json(body) { resolve({ code: this.code || 200, body }); } };
+    middleware(req, response, () => resolve({ code: 200 }));
+  });
+  const req = key => ({ ip: '127.0.0.1', socket: { remoteAddress: '127.0.0.1' }, headers: { 'x-api-key': key }, query: {}, body: {} });
+  process.env.RATE_LIMIT_PUBLIC = '1';
+  process.env.RATE_LIMIT_AUTH = '30';
+  await invoke(publicLimiter, req('public'));
+  const publicLimited = await invoke(publicLimiter, req('public'));
+  assert.equal(publicLimited.code, 429);
+  assert.equal(publicLimited.body.error, 'Rate limit exceeded');
+  assert.ok(typeof authLimiter === 'function');
+});
+
 test('profile richness adds no missing-signal risk and enforces age', () => {
   const oldProfile = analyzeProfile({});
   assert.equal(oldProfile.score, 0);
