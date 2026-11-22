@@ -85,6 +85,19 @@ test('join analysis is read-only and requires multiple matching joins for a wave
   assert.equal(analyzeJoin(guildId, 'user-3', metadata).accountWave, true);
 });
 
+test('join wave minimum defaults to three and never flags one joiner', () => {
+  const oldMinimum = process.env.JOIN_WAVE_MIN;
+  delete process.env.JOIN_WAVE_MIN;
+  const guildId = `join-min-${Date.now()}`;
+  assert.equal(analyzeJoin(guildId, 'only-user', { accountAgeDays: 1, avatar: null }).accountWave, false);
+  recordJoin(guildId, 'one', { accountAgeDays: 1, avatar: null });
+  recordJoin(guildId, 'two', { accountAgeDays: 1, avatar: null });
+  recordJoin(guildId, 'three', { accountAgeDays: 1, avatar: null });
+  const wave = analyzeJoin(guildId, 'four', { accountAgeDays: 1, avatar: null });
+  assert.equal(wave.accountWave, true);
+  if (oldMinimum == null) delete process.env.JOIN_WAVE_MIN; else process.env.JOIN_WAVE_MIN = oldMinimum;
+});
+
 test('thresholds are shared and confidence ignores unknown age', () => {
   assert.equal(riskLevel(60), 'high');
   assert.equal(recommendation(60), 'challenge');
