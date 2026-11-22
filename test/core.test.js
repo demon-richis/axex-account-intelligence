@@ -114,6 +114,19 @@ test('alt detector requires independent signals', async () => {
   assert.equal(result.alts.length <= 50, true);
 });
 
+test('profile richness adds no missing-signal risk and enforces age', () => {
+  const oldProfile = analyzeProfile({});
+  assert.equal(oldProfile.score, 0);
+  assert.equal(oldProfile.richness, 0);
+  const created = Date.now() - 2 * 86400000;
+  const full = analyzeProfile({ createdTimestamp: created, avatar: 'avatar', premiumType: 2, decoration: { asset: 'decoration' }, banner: 'banner', bio: 'hello' });
+  assert.equal(full.richness, 10);
+  assert.equal(full.autoCandidate, true);
+  const young = analyzeProfile({ createdTimestamp: Date.now(), avatar: 'avatar', premiumType: 2, decoration: {}, banner: 'banner', bio: 'hello' });
+  assert.equal(young.autoCandidate, false);
+  assert.equal(analyzeProfile({ createdTimestamp: created, avatar: null }).richness, 0);
+});
+
 test('username scoring is Unicode-aware and regex patterns are safe', async () => {
   const { analyzeUsername, invalidatePatternCache } = require('../src/analyzers/usernameAnalyzer');
   for (const name of ['रोहित', 'محمد', '田中太郎', 'Иван', '😀cool']) {

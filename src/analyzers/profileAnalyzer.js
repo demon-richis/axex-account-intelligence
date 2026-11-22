@@ -6,6 +6,12 @@ function analyzeProfile(user = {}) {
   if (user.avatar !== undefined && !user.avatar) { score += 20; reasons.push('DEFAULT_AVATAR'); }
   if (user.bio !== undefined && !user.bio) { score += 5; reasons.push('NO_BIO'); }
   if (Array.isArray(user.connections) && user.connections.length === 0) { score += 5; reasons.push('NO_CONNECTIONS'); }
-  return { score: Math.min(score, 100), reasons, ageDays };
+  const decoration = Boolean(user.decoration);
+  const premium = Boolean(user.premiumType);
+  const banner = Boolean(user.banner);
+  const bio = Boolean(user.bio);
+  const richness = (decoration ? 4 : 0) + (premium ? 3 : 0) + (banner ? 2 : 0) + (bio ? 1 : 0);
+  const autoCandidate = richness >= 3 && ageDays >= 1 && reasons.every(reason => reason !== 'DEFAULT_AVATAR');
+  return { score: Math.min(score, 100), reasons, ageDays, richness: Math.min(richness, 10), autoCandidate };
 }
 module.exports = { analyzeProfile };
