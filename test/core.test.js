@@ -98,6 +98,22 @@ test('join wave minimum defaults to three and never flags one joiner', () => {
   if (oldMinimum == null) delete process.env.JOIN_WAVE_MIN; else process.env.JOIN_WAVE_MIN = oldMinimum;
 });
 
+test('alt detector requires independent signals', async () => {
+  const { detectAlts } = require('../src/analyzers/altDetector');
+  const memory = getMemory();
+  memory.users.clear();
+  memory.ips.clear();
+  memory.alts.length = 0;
+  memory.users.set('123456789012345678', { user_id: '123456789012345678', username: 'normal', avatar_hash: null, ip_address: '203.0.113.10', account_created: new Date().toISOString(), is_flagged: false, last_seen: new Date().toISOString() });
+  let result = await detectAlts('123456789012345679', '203.0.113.10', 'different', null, null);
+  assert.equal(result.alts.length, 0);
+  memory.users.set('123456789012345680', { user_id: '123456789012345680', username: 'different', avatar_hash: 'same-avatar', ip_address: '203.0.113.11', account_created: null, is_flagged: false, last_seen: new Date().toISOString() });
+  result = await detectAlts('123456789012345681', '203.0.113.11', 'different', null, 'same-avatar');
+  assert.equal(result.alts.length >= 1, true);
+  result = await detectAlts('123456789012345678', null, null, null, null);
+  assert.equal(result.alts.length <= 50, true);
+});
+
 test('thresholds are shared and confidence ignores unknown age', () => {
   assert.equal(riskLevel(60), 'high');
   assert.equal(recommendation(60), 'challenge');

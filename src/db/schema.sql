@@ -16,5 +16,8 @@ CREATE TABLE IF NOT EXISTS flagged_accounts (user_id TEXT PRIMARY KEY, reason TE
 ALTER TABLE flagged_accounts ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE;
 CREATE TABLE IF NOT EXISTS guild_baselines (guild_id TEXT PRIMARY KEY, sample_count INTEGER DEFAULT 0, join_count INTEGER DEFAULT 0, fresh_join_count INTEGER DEFAULT 0, raid_count INTEGER DEFAULT 0, verification_successes INTEGER DEFAULT 0, verification_failures INTEGER DEFAULT 0, average_account_age_days DOUBLE PRECISION, updated_at TIMESTAMPTZ DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS outcomes (id SERIAL PRIMARY KEY, user_id TEXT NOT NULL, guild_id TEXT NOT NULL, outcome TEXT NOT NULL CHECK (outcome IN ('confirmed_bad','confirmed_good','false_positive','false_negative')), decided_by TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
+CREATE INDEX IF NOT EXISTS user_intelligence_ip_last_seen_idx ON user_intelligence (ip_address, last_seen);
+CREATE INDEX IF NOT EXISTS user_intelligence_avatar_hash_idx ON user_intelligence (avatar_hash);
+CREATE INDEX IF NOT EXISTS user_intelligence_username_lower_idx ON user_intelligence (lower(username));
 INSERT INTO username_patterns (pattern, pattern_type, score_addition, description) VALUES
 ('[a-z]{2,4}[0-9]{4,8}$','regex',20,'Letters followed by many numbers'),('[a-zA-Z0-9]{16,}','regex',15,'Very long random string'),('(user|member|discord|bot)[0-9]+','regex',25,'Generic bot-like name'), ('([a-z])\\1{3,}','regex',20,'Repeated characters'), ('(deleted|banned|null|undefined)','keyword',30,'Suspicious keywords'), ('[^a-zA-Z0-9_.]','regex',10,'Unusual special characters') ON CONFLICT (pattern) DO NOTHING;

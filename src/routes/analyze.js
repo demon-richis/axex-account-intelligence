@@ -39,7 +39,7 @@ async function handleAnalysis(req, res, source) {
     const usernameResult = await analyzeUsername(username || '');
     const behavior = await getBehaviorScore(userId);
     const network = await analyzeIP(ip, userId);
-    const alt = await detectAlts(userId, ip, username, createdTimestamp);
+    const alt = await detectAlts(userId, ip, username, createdTimestamp, avatar);
     const baseline = guildId ? await getGuildBaseline(guildId) : null;
     const joinWave = guildId ? analyzeJoin(guildId, userId, { accountAgeDays: profile.ageDays, avatar }) : { score: 0, reasons: [] };
     const guildSignal = guildId ? analyzeGuildBaseline(baseline, profile.ageDays) : { score: 0, reasons: [], baseline: null };
