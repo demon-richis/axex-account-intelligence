@@ -2,7 +2,7 @@ const net = require('net');
 
 function requiredId(value, name) {
   const id = String(value || '').trim();
-  if (!id || id.length > 64) throw new Error(`${name} must be 1-64 characters`);
+  if (!/^\d{17,20}$/.test(id)) throw new Error(`${name} must be a valid Discord snowflake`);
   return id;
 }
 

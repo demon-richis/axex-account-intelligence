@@ -97,3 +97,12 @@ test('analyze does not persist join-pattern observations', () => {
   assert.doesNotMatch(source, /recordJoin|recordGuildObservation|INSERT INTO join_patterns/);
   assert.match(source, /analyzeJoin/);
 });
+
+test('database migrations are versioned modules and reference alt indexes', () => {
+  const migrationDir = path.join(__dirname, '..', 'src/db/migrations');
+  const files = fs.readdirSync(migrationDir).sort();
+  assert.deepEqual(files, ['001_baseline.js', '002_alt_indexes.js']);
+  const migration002 = require(path.join(migrationDir, '002_alt_indexes.js'));
+  assert.equal(migration002.statements.length, 3);
+  assert.ok(migration002.statements.some(statement => statement.includes('user_intelligence_ip_last_seen_idx')));
+});

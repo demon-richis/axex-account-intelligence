@@ -17,8 +17,24 @@ async function initDB() {
   if (initialized) return;
   if (process.env.DATABASE_URL) {
     sql = neon(process.env.DATABASE_URL);
-    const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
-    for (const statement of schema.split(';').map(s => s.trim()).filter(Boolean)) await sql(statement);
+    await sql(`CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    const appliedRows = await sql('SELECT version FROM schema_migrations');
+    const applied = new Set(appliedRows.map(row => row.version));
+    const migrationDir = path.join(__dirname, 'migrations');
+    const files = fs.readdirSync(migrationDir).filter(file => /^\d{3}_.*\.js$/.test(file)).sort();
+    for (const file of files) {
+      const version = file.slice(0, 3);
+      if (applied.has(version)) continue;
+      const migration = require(path.join(migrationDir, file));
+      try {
+        for (const statement of migration.statements) await sql(statement);
+        await sql('INSERT INTO schema_migrations (version) VALUES ($1)', [version]);
+        console.log(`[DB] Applied migration ${version} (${file})`);
+      } catch (error) {
+        console.error(`[DB] Migration ${version} failed: ${error.message}`);
+        throw error;
+      }
+    }
   } else {
     memory.patterns.push(...defaults);
     console.warn('DATABASE_URL not set; using in-memory development store.');

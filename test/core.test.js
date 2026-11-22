@@ -224,7 +224,7 @@ test('Discord 429 does not fail analysis and backs off repeat calls', async () =
   const server = http.createServer(app);
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const request = () => new Promise((resolve, reject) => {
-    const req = http.request({ hostname: '127.0.0.1', port: server.address().port, path: '/analyze/discord-429?username=normalname', headers: { 'X-API-Key': 'test-key' } }, response => {
+    const req = http.request({ hostname: '127.0.0.1', port: server.address().port, path: '/analyze/123456789012345677?username=normalname', headers: { 'X-API-Key': 'test-key' } }, response => {
       let body = '';
       response.on('data', chunk => { body += chunk; });
       response.on('end', () => resolve({ statusCode: response.statusCode, body: JSON.parse(body) }));

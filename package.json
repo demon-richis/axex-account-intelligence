@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "check": "node --check index.js && find src -name '*.js' -print0 | xargs -0 -n1 node --check",
-    "test": "node --test"
+    "test": "node --test",
+    "check": "node --check index.js && node -e \"const fs=require('fs'),cp=require('child_process'),path=require('path'); function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})) {const p=path.join(d,e.name); if(e.isDirectory()) walk(p); else if(p.endsWith('.js')) cp.execFileSync(process.execPath,['--check',p],{stdio:'inherit'});}} walk('src')\""
   },
   "dependencies": {
     "@neondatabase/serverless": "0.9.5",
