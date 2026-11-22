@@ -12,15 +12,16 @@ const { getGuildBaseline, analyzeGuildBaseline } = require('../analyzers/guildBa
 const { requiredId, optionalId, optionalIp, optionalTimestamp, optionalUsername } = require('../utils/validation');
 const cache = require('../cache/scoreCache');
 
-router.get('/:userId', async (req, res) => {
+async function handleAnalysis(req, res, source) {
   try {
     const userId = requiredId(req.params.userId, 'userId');
-    const requestedUsername = optionalUsername(req.query.username);
+    const input = source === 'body' ? (req.body || {}) : req.query;
+    const requestedUsername = optionalUsername(input.username);
     let ip = null;
-    try { ip = optionalIp(req.query.ip); } catch (_) { ip = null; }
-    const guildId = optionalId(req.query.guildId, 'guildId');
+    try { ip = optionalIp(input.ip); } catch (_) { ip = null; }
+    const guildId = optionalId(input.guildId, 'guildId');
     let requestedTimestamp = null;
-    try { requestedTimestamp = optionalTimestamp(req.query.createdTimestamp); } catch (_) { requestedTimestamp = null; }
+    try { requestedTimestamp = optionalTimestamp(input.createdTimestamp); } catch (_) { requestedTimestamp = null; }
     let discordAccount = null;
     let discordEnriched = false;
     if (process.env.DISCORD_TOKEN) {
@@ -32,9 +33,9 @@ router.get('/:userId', async (req, res) => {
       }
     }
     const username = discordAccount?.username || requestedUsername;
-    const avatar = discordAccount ? discordAccount.avatar : req.query.avatar;
+    const avatar = discordAccount ? discordAccount.avatar : input.avatar;
     const createdTimestamp = discordAccount?.createdTimestamp || requestedTimestamp;
-    const profile = analyzeProfile({ username, avatar, createdTimestamp });
+    const profile = analyzeProfile({ username, avatar, createdTimestamp, premiumType: input.premiumType, decoration: input.decoration, banner: input.banner, bio: input.bio, connections: input.connections });
     const usernameResult = await analyzeUsername(username || '');
     const behavior = await getBehaviorScore(userId);
     const network = await analyzeIP(ip, userId);
@@ -61,12 +62,18 @@ router.get('/:userId', async (req, res) => {
       else getMemory().history.push({ user_id: userId, old_score: Number(previous), new_score: result.finalScore, reason: historyReason, changed_at: new Date().toISOString() });
     }
     cache.set(userId, { riskScore: result.finalScore, riskLevel: result.riskLevel, recommendation: result.recommendation, confidence: result.confidence });
-    res.json({ userId, username, dataSource: discordAccount ? 'discord' : 'request', discordEnriched, riskScore: result.finalScore, riskLevel: result.riskLevel, recommendation: result.recommendation, confidence: result.confidence, scoreVersion: '2.0', breakdown: result.breakdown, reasons: result.reasons, cached: false, analyzedAt: new Date().toISOString() });
+    const rawReferenceId = typeof input.referenceId === 'string' ? input.referenceId : '';
+    const referenceId = rawReferenceId.length > 0 && rawReferenceId.length <= 64 ? rawReferenceId : null;
+    const response = { userId, username, dataSource: discordAccount ? 'discord' : 'request', discordEnriched, riskScore: result.finalScore, riskLevel: result.riskLevel, recommendation: result.recommendation, confidence: result.confidence, scoreVersion: '2.1', breakdown: result.breakdown, reasons: result.reasons, cached: false, analyzedAt: new Date().toISOString(), autoCandidate: profile.autoCandidate, referenceId };
+    res.json(response);
   } catch (error) {
     const status = /must be|must have|valid|characters/.test(error.message) ? 400 : 503;
     console.error('analysis:', error.message);
     res.status(status).json({ error: status === 400 ? error.message : 'Analysis unavailable' });
   }
-});
+}
+
+router.get('/:userId', (req, res) => handleAnalysis(req, res, 'query'));
+router.post('/:userId', (req, res) => handleAnalysis(req, res, 'body'));
 
 module.exports = router;

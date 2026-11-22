@@ -133,3 +133,37 @@ test('Discord 429 does not fail analysis and backs off repeat calls', async () =
   assert.equal(calls, 1);
   assert.equal(Number.isFinite(discordSnowflakeCreatedAt('175928847299117063')), true);
 });
+
+test('POST analyze accepts JSON and preserves GET compatibility', async () => {
+  const http = require('node:http');
+  const originalApiKey = process.env.API_KEY;
+  const originalDiscord = process.env.DISCORD_TOKEN;
+  process.env.API_KEY = 'test-post-key';
+  delete process.env.DISCORD_TOKEN;
+  const { app } = require('../index');
+  const server = http.createServer(app);
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const request = (method, path, body) => new Promise((resolve, reject) => {
+    const payload = body ? JSON.stringify(body) : null;
+    const req = http.request({ hostname: '127.0.0.1', port: server.address().port, path, method, headers: { 'X-API-Key': 'test-post-key', ...(payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {}) } }, response => {
+      let text = '';
+      response.on('data', chunk => { text += chunk; });
+      response.on('end', () => resolve({ status: response.statusCode, body: JSON.parse(text) }));
+    });
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+  const get = await request('GET', '/analyze/123456789012345678?username=normalname&createdTimestamp=1500000000000');
+  const post = await request('POST', '/analyze/123456789012345678', { username: 'normalname', createdTimestamp: 1500000000000, ip: 'not-an-ip', referenceId: 'portal-123' });
+  await new Promise(resolve => server.close(resolve));
+  if (originalApiKey == null) delete process.env.API_KEY; else process.env.API_KEY = originalApiKey;
+  if (originalDiscord == null) delete process.env.DISCORD_TOKEN; else process.env.DISCORD_TOKEN = originalDiscord;
+  assert.equal(post.status, 200);
+  assert.equal(post.body.referenceId, 'portal-123');
+  assert.equal(post.body.riskScore, get.body.riskScore);
+  assert.equal(post.body.userId, get.body.userId);
+  assert.ok(post.body.username);
+  assert.ok(post.body.breakdown);
+  assert.equal(post.body.scoreVersion, '2.1');
+});
