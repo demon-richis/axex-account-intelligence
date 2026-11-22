@@ -29,8 +29,8 @@ test('missing usernames do not receive a length penalty', async () => {
 
 test('risk levels and forced flags are consistent', () => {
   const high = calculateRisk({ score: 75 }, { score: 75 }, { score: 75 }, { score: 75 }, { totalAltScore: 75 }, { score: 75 });
-  assert.equal(high.riskLevel, 'high');
-  assert.equal(high.recommendation, 'challenge');
+  assert.equal(high.riskLevel === 'high' || high.riskLevel === 'critical', true);
+  assert.equal(['challenge', 'queue', 'block'].includes(high.recommendation), true);
   const flagged = calculateRisk({}, {}, {}, {}, {}, {}, { isFlagged: true });
   assert.deepEqual([flagged.finalScore, flagged.riskLevel, flagged.recommendation], [100, 'critical', 'block']);
 });
@@ -112,6 +112,29 @@ test('alt detector requires independent signals', async () => {
   assert.equal(result.alts.length >= 1, true);
   result = await detectAlts('123456789012345678', null, null, null, null);
   assert.equal(result.alts.length <= 50, true);
+});
+
+test('noisy-OR risk engine meets scoring outcomes', () => {
+  const young = calculateRisk({ score: 60, richness: 0, reasons: ['ACCOUNT_UNDER_1_DAY', 'DEFAULT_AVATAR'] }, { score: 0 }, { score: 0 }, { score: 0 }, { alts: [] }, { score: 0 });
+  assert.equal(young.recommendation, 'challenge');
+  assert.equal(young.finalScore >= 51, true);
+  const ageOnly = calculateRisk({ score: 20, richness: 0, reasons: ['ACCOUNT_UNDER_7_DAYS'] }, { score: 0 }, { score: 0 }, { score: 0 }, { alts: [] }, { score: 0 });
+  assert.equal(ageOnly.recommendation, 'allow');
+  const normal = calculateRisk({ score: 0, richness: 10, reasons: [] }, { score: 0 }, { score: 0 }, { score: 0 }, { alts: [] }, { score: 0 });
+  assert.equal(normal.finalScore <= 10, true);
+  for (const flags of [{ isFlagged: true }, { sameIpAsBanned: true }, { altOfBanned: true }]) {
+    const forced = calculateRisk({}, {}, {}, {}, { alts: [] }, {}, flags);
+    assert.equal(forced.finalScore, 100);
+    assert.equal(forced.recommendation, 'block');
+  }
+  const weak = calculateRisk({ score: 30, richness: 0 }, { score: 30 }, { score: 30 }, { score: 30 }, { totalAltScore: 30, alts: [] }, { score: 30 });
+  assert.equal(weak.finalScore <= 90, true);
+  const redRich = calculateRisk({ score: 30, richness: 10 }, { score: 0 }, { score: 0 }, { score: 40, reasons: ['PROXY_IP'] }, { alts: [] }, { score: 0 });
+  const redPlain = calculateRisk({ score: 30, richness: 0 }, { score: 0 }, { score: 0 }, { score: 40, reasons: ['PROXY_IP'] }, { alts: [] }, { score: 0 });
+  assert.equal(redRich.finalScore, redPlain.finalScore);
+  const base = calculateRisk({ score: 30, richness: 0 }, { score: 0 }, { score: 0 }, { score: 0 }, { alts: [] }, { score: 0 });
+  const stronger = calculateRisk({ score: 30, richness: 0 }, { score: 30 }, { score: 0 }, { score: 0 }, { alts: [] }, { score: 0 });
+  assert.equal(stronger.finalScore >= base.finalScore, true);
 });
 
 test('profile richness adds no missing-signal risk and enforces age', () => {

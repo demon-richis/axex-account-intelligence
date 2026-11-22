@@ -43,11 +43,12 @@ async function handleAnalysis(req, res, source) {
     const baseline = guildId ? await getGuildBaseline(guildId) : null;
     const joinWave = guildId ? analyzeJoin(guildId, userId, { accountAgeDays: profile.ageDays, avatar }) : { score: 0, reasons: [] };
     const guildSignal = guildId ? analyzeGuildBaseline(baseline, profile.ageDays) : { score: 0, reasons: [], baseline: null };
-    const join = { ...joinWave, score: Math.min(100, joinWave.score + guildSignal.score), reasons: [...(joinWave.reasons || []), ...guildSignal.reasons], guildBaseline: guildSignal };
+    const join = { ...joinWave, guildBaseline: guildSignal };
     const flag = await getActiveFlag(userId);
     const previousRows = getSql() ? await getSql()('SELECT risk_score FROM user_intelligence WHERE user_id=$1', [userId]) : [];
     const previous = previousRows[0]?.risk_score ?? getMemory().users.get(userId)?.risk_score;
-    const result = calculateRisk(profile, usernameResult, behavior, network, alt, join, { isFlagged: Boolean(flag), sameIpAsBanned: Boolean(network.data?.flagged) });
+    const altOfBanned = Boolean((alt.alts || []).some(item => (item.reasons || []).includes('SAME_IP_AS_FLAGGED')));
+    const result = calculateRisk(profile, usernameResult, behavior, network, alt, join, guildSignal, { isFlagged: Boolean(flag), sameIpAsBanned: Boolean(network.data?.flagged), altOfBanned });
     const accountCreated = createdTimestamp ? new Date(createdTimestamp).toISOString() : null;
     const record = { user_id: userId, username, avatar_hash: avatar || null, ip_address: ip, account_created: accountCreated, risk_score: result.finalScore, risk_level: result.riskLevel, confidence: result.confidence, profile_score: profile.score, username_score: usernameResult.score, behavior_score: behavior.score, network_score: network.score, is_flagged: Boolean(flag), flag_reason: flag?.reason || null, last_seen: new Date().toISOString() };
     const sql = getSql();
