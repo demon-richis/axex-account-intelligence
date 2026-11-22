@@ -114,6 +114,24 @@ test('alt detector requires independent signals', async () => {
   assert.equal(result.alts.length <= 50, true);
 });
 
+test('username scoring is Unicode-aware and regex patterns are safe', async () => {
+  const { analyzeUsername, invalidatePatternCache } = require('../src/analyzers/usernameAnalyzer');
+  for (const name of ['रोहित', 'محمد', '田中太郎', 'Иван', '😀cool']) {
+    const result = await analyzeUsername(name);
+    assert.equal(result.reasons.includes('LONG_SYMBOL_OR_ZALGO_RUN'), false);
+  }
+  assert.equal((await analyzeUsername('user12345678')).score > 0, true);
+  assert.equal((await analyzeUsername('xX_a8f3k2j9d1_Xx')).score > 0, true);
+  const memory = getMemory();
+  memory.patterns.length = 0;
+  memory.patterns.push({ pattern: '(a+)+', pattern_type: 'regex', score_addition: 40, description: 'unsafe' });
+  invalidatePatternCache();
+  assert.equal((await analyzeUsername('aaaa')).score <= 60, true);
+  assert.equal((await analyzeUsername('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')).score <= 60, true);
+  memory.patterns.length = 0;
+  invalidatePatternCache();
+});
+
 test('thresholds are shared and confidence ignores unknown age', () => {
   assert.equal(riskLevel(60), 'high');
   assert.equal(recommendation(60), 'challenge');

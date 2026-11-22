@@ -20,4 +20,4 @@ CREATE INDEX IF NOT EXISTS user_intelligence_ip_last_seen_idx ON user_intelligen
 CREATE INDEX IF NOT EXISTS user_intelligence_avatar_hash_idx ON user_intelligence (avatar_hash);
 CREATE INDEX IF NOT EXISTS user_intelligence_username_lower_idx ON user_intelligence (lower(username));
 INSERT INTO username_patterns (pattern, pattern_type, score_addition, description) VALUES
-('[a-z]{2,4}[0-9]{4,8}$','regex',20,'Letters followed by many numbers'),('[a-zA-Z0-9]{16,}','regex',15,'Very long random string'),('(user|member|discord|bot)[0-9]+','regex',25,'Generic bot-like name'), ('([a-z])\\1{3,}','regex',20,'Repeated characters'), ('(deleted|banned|null|undefined)','keyword',30,'Suspicious keywords'), ('[^a-zA-Z0-9_.]','regex',10,'Unusual special characters') ON CONFLICT (pattern) DO NOTHING;
+('[a-z]{2,4}[0-9]{4,8}$','regex',20,'Letters followed by many numbers'),('[a-zA-Z0-9]{16,}','regex',15,'Very long random string'),('(user|member|discord|bot)[0-9]+','regex',25,'Generic bot-like name'), ('([a-z])\\1{3,}','regex',20,'Repeated characters'), ('(deleted|banned|null|undefined)','keyword',30,'Suspicious keywords') ON CONFLICT (pattern) DO NOTHING;

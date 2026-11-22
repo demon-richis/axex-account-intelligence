@@ -10,8 +10,7 @@ const defaults = [
   { pattern: '[a-zA-Z0-9]{16,}', pattern_type: 'regex', score_addition: 15, description: 'Very long random string' },
   { pattern: '(user|member|discord|bot)[0-9]+', pattern_type: 'regex', score_addition: 25, description: 'Generic bot-like name' },
   { pattern: '([a-z])\\1{3,}', pattern_type: 'regex', score_addition: 20, description: 'Repeated characters' },
-  { pattern: '(deleted|banned|null|undefined)', pattern_type: 'keyword', score_addition: 30, description: 'Suspicious keywords' },
-  { pattern: '[^a-zA-Z0-9_.]', pattern_type: 'regex', score_addition: 10, description: 'Unusual special characters' }
+  { pattern: '(deleted|banned|null|undefined)', pattern_type: 'keyword', score_addition: 30, description: 'Suspicious keywords' }
 ];
 
 async function initDB() {
