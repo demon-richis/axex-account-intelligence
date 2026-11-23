@@ -157,13 +157,18 @@ test('profile richness adds no missing-signal risk and enforces age', () => {
   const oldProfile = analyzeProfile({});
   assert.equal(oldProfile.score, 0);
   assert.equal(oldProfile.richness, 0);
+  assert.equal(oldProfile.richnessPenalty, 0);
   const created = Date.now() - 2 * 86400000;
   const full = analyzeProfile({ createdTimestamp: created, avatar: 'avatar', premiumType: 2, decoration: { asset: 'decoration' }, banner: 'banner', bio: 'hello' });
   assert.equal(full.richness, 10);
+  assert.equal(full.richnessPenalty, -10);
+  assert.equal(full.score, 10);
   assert.equal(full.autoCandidate, true);
   const young = analyzeProfile({ createdTimestamp: Date.now(), avatar: 'avatar', premiumType: 2, decoration: {}, banner: 'banner', bio: 'hello' });
-  assert.equal(young.autoCandidate, false);
+  assert.equal(young.autoCandidate, true);
+  assert.equal(analyzeProfile({ createdTimestamp: created, avatar: 'avatar', decoration: false }).autoCandidate, false);
   assert.equal(analyzeProfile({ createdTimestamp: created, avatar: null }).richness, 0);
+  assert.equal(analyzeProfile({ createdTimestamp: Date.now() - 100 * 86400000, avatar: null }).score, 20);
 });
 
 test('username scoring is Unicode-aware and regex patterns are safe', async () => {

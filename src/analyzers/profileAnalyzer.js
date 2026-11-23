@@ -11,7 +11,15 @@ function analyzeProfile(user = {}) {
   const banner = Boolean(user.banner);
   const bio = Boolean(user.bio);
   const richness = (decoration ? 4 : 0) + (premium ? 3 : 0) + (banner ? 2 : 0) + (bio ? 1 : 0);
-  const autoCandidate = richness >= 3 && ageDays >= 1 && reasons.every(reason => reason !== 'DEFAULT_AVATAR');
-  return { score: Math.min(score, 100), reasons, ageDays, richness: Math.min(richness, 10), autoCandidate };
+  const richnessPenalty = richness ? -Math.min(richness, 10) : 0;
+  const autoCandidate = decoration;
+  return {
+    score: Math.max(0, Math.min(score, 100) + richnessPenalty),
+    reasons,
+    ageDays,
+    richness: Math.min(richness, 10),
+    richnessPenalty,
+    autoCandidate,
+  };
 }
 module.exports = { analyzeProfile };
