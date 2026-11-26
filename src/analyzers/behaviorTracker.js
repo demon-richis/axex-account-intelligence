@@ -29,7 +29,7 @@ function summarize(events, now) {
       weightedFailures: failures.reduce((sum, item) => sum + item.weight, 0),
       joins: joins.length,
       weightedJoins: joins.reduce((sum, item) => sum + item.weight, 0),
-      averageClickMs: clickWeight ? clicks.reduce((sum, item) => sum + Number(item.event.click_ms ?? item.event.clickMs) * item.weight, 0) / clickWeight : null
+      averageClickMs: clickWeight ? Math.round((clicks.reduce((sum, item) => sum + Number(item.event.click_ms ?? item.event.clickMs) * item.weight, 0) / clickWeight) * 1e6) / 1e6 : null
     };
   }
   return result;
